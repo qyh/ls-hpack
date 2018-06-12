@@ -33,7 +33,29 @@ static int _encode(lua_State *L) {
     lua_pushnumber(L, end-tmp_buf);
     return 2; 
 }
-
+static int _batch_decode(lua_State *L) {
+    void *ud = (void*)luaL_checkudata(L, 1, "ls-hpack");
+    luaL_argcheck(L, ud != NULL, 1, "hpack_t expected");
+    hpack_t *p = (hpack_t*)ud;
+    char out[0x1000];
+    size_t len = 0;
+    unsigned char* tx = (unsigned char*)luaL_checklstring(L, 2, &len);
+    uint16_t nlen = 0;
+    uint16_t vlen = 0;
+    unsigned char* end = tx + len;
+    const unsigned char* com = tx;
+    lua_newtable(L);
+    while (1) {
+	int s = lshpack_dec_decode(&(p->hdec), &com, end, out, out + sizeof(out), &nlen, &vlen);
+	if (s != 0) {
+	    break;
+	}
+	lua_pushlstring(L, out, nlen);
+	lua_pushlstring(L, out+nlen, vlen);
+	lua_settable(L, -3);
+    }
+    return 1;
+}
 static int _decode(lua_State *L) {
     void *ud = (void*)luaL_checkudata(L, 1, "ls-hpack");
     luaL_argcheck(L, ud != NULL, 1, "hpack_t expected");
@@ -60,6 +82,7 @@ static const struct luaL_Reg hpacklib_f[] = {
 static const struct luaL_Reg hpacklib_m[] = {
     {"encode", _encode},
     {"decode", _decode},
+    {"batch_decode", _batch_decode},
     {NULL, NULL}
 };
 
